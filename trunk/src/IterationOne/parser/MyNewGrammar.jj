@@ -1,0 +1,364 @@
+options
+{
+  JDK_VERSION = "1.5";
+  static = true;
+}
+
+PARSER_BEGIN(Parser)
+package IterationOne.parser;
+import IterationTwo.syntaxtree.*;
+
+public class Parser
+{
+ 
+}
+
+PARSER_END(Parser)
+
+SKIP :
+{
+  " "
+| "\r"
+| "\t"
+| "\n"
+
+}
+
+SKIP :
+{
+  "/*" : multilinecomment
+}
+
+SKIP :
+{
+  "//" : singlelinecomment
+}
+
+<multilinecomment> SKIP:
+{
+   "*/" : DEFAULT
+|  <~[]>
+}
+
+<singlelinecomment> SKIP:
+{
+   <["\n","\r"]> : DEFAULT
+|   <~[]>
+}
+
+
+
+
+TOKEN : /* OPERATORS */
+{
+  < CLASS : "class" >
+| < PUBLIC : "public">
+| < STATIC : "static" >
+| < VOID : "void" > 
+| < MAIN : "main" >
+| < STRING : "String" >
+| < ARRAY_MODIFIER : "[]" >
+| < EXTENDS : "extends" >
+| < RETURN : "return" >
+| < BOOLEAN_TYPE : "boolean" >
+| < INT_ARRAY : "int"< ARRAY_MODIFIER > >
+| < INT : "int" >
+| < IF : "if" >
+| < ELSE : "else" >
+| < WHILE : "while" >
+| < PRINT : "System.out.println" >
+| < OPERATOR : "&&"|"<"|"+"|"-"|"*"  >
+| < SEMI_COLON : ";" >
+| < EQUALS : "=" >
+| < LENGTH : "length" >
+| < POINT : "." >
+| < BOOLEAN : "true"|"false" >
+| < INTEGER_LITERAL : (<DIGIT>)+ >
+| < THIS : "this" >
+| < NEW : "new" >
+| < NEGATION : "!" >
+| < COMMA : "," >
+| < LBRACE : "(" >
+| < RBRACE : ")" >
+| < LSQUAREBRACKET : "[" >
+| < RSQUAREBRACKET : "]" >
+| < LCURLYBRACE : "{">
+| < RCURLYBRACE : "}" >
+| < ID : (["a"-"z"]|["A"-"Z"])(["a"-"z"]|["A"-"Z"]|"_"|<DIGIT>)* >
+}
+
+TOKEN :
+{
+  < #DIGIT : [ "0"-"9" ] >
+}
+
+int one_line() :
+{}
+{
+  program() 
+  {
+    return 0;
+  }
+|		  
+  {
+    return 1;
+  }
+}
+
+Program program() :
+{MainClass mc; ClassDeclList cdl; Program p;}
+{
+ mc=main_class() cdl=class_decl_()< EOF >
+ {p = new Program(mc,cdl);return p;}
+}
+
+
+MainClass main_class() :
+{MainClass mc; Token i1; Token i2; Statement st;}
+{
+ < CLASS >
+ i1=< ID >
+ 	< LCURLYBRACE > < PUBLIC > < STATIC > < VOID >< MAIN >
+ < LBRACE > < STRING > < ARRAY_MODIFIER >
+ i2 =< ID >
+ < RBRACE > < LCURLYBRACE >
+ st = 				statement()
+ 				< RCURLYBRACE > < RCURLYBRACE >
+ 				{mc = new MainClass(new Identifier(i1.toString()), new Identifier(i2.toString()), st); return mc;				}
+}
+
+Type type():
+{Token s;}
+{
+		  < BOOLEAN_TYPE >		 { return new BooleanType();	 }
+| s = < ID> { return new IdentifierType(s.toString());	 }
+| < INT_ARRAY > { return new IntArrayType();	 }
+| < INT > { return new IntegerType();	 }
+}
+
+
+ClassDeclList class_decl_():
+{ClassDecl cd; ClassDeclList cdl;}
+{
+ cd = class_decl()
+ cdl = class_decl_()
+ {cdl.addElement(cd);return cdl;}
+|{return new ClassDeclList();}
+} 
+
+ClassDecl class_decl():
+{Token i; ClassDecl cd;}
+{
+  < CLASS > i = < ID > cd = class_id(new Identifier(i.toString()))
+  {return cd;}
+}
+
+ClassDecl class_id(Identifier id) :
+{Token i;VarDeclList vdl; MethodDeclList mdl;}
+{
+  < LCURLYBRACE > vdl = var_decl_() mdl = method_decl_() < RCURLYBRACE>
+  {return new ClassDeclSimple(id,vdl,mdl);}
+| < EXTENDS> i= < ID > < LCURLYBRACE > vdl = var_decl_() mdl = method_decl_() < RCURLYBRACE>
+										  {return new ClassDeclExtends(id,new Identifier(i.toString()),vdl,mdl);}
+}
+
+VarDecl var_decl() :
+{Type t; Token i;}
+{
+  t = type() i = < ID > < SEMI_COLON>
+  {return new VarDecl(t,new Identifier(i.toString()));} 
+}
+
+VarDeclList var_decl_():
+{VarDecl vd; VarDeclList vdl;}
+{
+	vd = var_decl() vdl = var_decl_()	{vdl.addElement(vd);return vdl;	}
+	| {return new VarDeclList();	}    
+}
+
+MethodDecl method_decl():
+{VarDeclList vdl= new VarDeclList();Token i;
+StatementList sl;Type t; FormalList fl;Exp exp;}
+{
+	< PUBLIC > t = type() i = < ID > < LBRACE > fl = formal_list() < RBRACE > < LCURLYBRACE >
+	sl = var_statement_(vdl)< RETURN > exp = exp() < SEMI_COLON > < RCURLYBRACE >
+	{return new MethodDecl(t, new Identifier(i.toString()), fl,vdl,sl,exp);	}
+}
+
+StatementList var_statement_(VarDeclList vdl):
+{Type t;StatementList sl;Statement s;}
+{
+  t = type()sl = a(t,vdl)
+  {return sl; }
+| s = statement_two()sl =  statement_(){sl.addElement(s);return sl;}
+| {return new StatementList();}
+}
+
+StatementList a(Type type,VarDeclList vdl):
+{Token i; Exp exp; Exp exp2; VarDecl vd;StatementList sl;}
+{
+  i = < ID> < SEMI_COLON> {vd = new VarDecl(type, new Identifier(i.toString()));}
+  sl = var_statement_(vdl)
+  { vdl.addElement(vd);return sl;}  
+| < EQUALS > exp = exp() < SEMI_COLON > sl = statement_()
+  {sl.addElement(new Assign( new Identifier(((IdentifierType)type).s),exp));return sl;}
+| < LSQUAREBRACKET > exp = exp() < RSQUAREBRACKET > < EQUALS > exp2= exp() < SEMI_COLON > sl = statement_()
+  {sl.addElement(new ArrayAssign(new Identifier(((IdentifierType)type).s), exp, exp2));return sl;}
+}
+
+
+MethodDeclList method_decl_():
+{MethodDecl md; MethodDeclList mdl;}
+{
+	 md = method_decl()mdl= method_decl_()
+	 {mdl.addElement(md); return mdl;}
+	|{	return new MethodDeclList();}    
+}
+
+FormalList formal_list():
+{FormalList fl; Token i; Type t;}
+{
+ t = type() i = < ID > fl = formal_rest_()
+ {fl.addElement(new Formal(t, new Identifier(i.toString())));return fl;}
+|{return new FormalList();}
+}
+
+FormalList formal_rest_():
+{FormalList fl; Formal f;}
+{
+	 f = formal_rest() fl = formal_rest_()
+	 {fl.addElement(f);return fl;}
+	|{	return new FormalList();}    
+}
+
+Formal formal_rest():
+{Type t; Token i;}
+{
+  < COMMA > t = type() i = < ID >
+  {return new Formal(t, new Identifier(i.toString()));} 
+}
+
+Statement statement():
+{Statement s; Statement s2; StatementList sl; Exp exp;Token i;}
+{
+  < LCURLYBRACE > sl = statement_() < RCURLYBRACE >
+  {return new Block(sl);}
+| < IF > <LBRACE > exp = exp() < RBRACE > s = statement() < ELSE > s2 = statement()
+  {return new If(exp, s, s2);}
+| < WHILE > < LBRACE > exp = exp() < RBRACE > s = statement()
+  {return new While(exp, s);}
+| < PRINT > <LBRACE > exp = exp() < RBRACE > < SEMI_COLON >
+  {return new Print(exp);} 
+| i = < ID > s = statement_factor(new Identifier(i.toString()))
+  { return s; }
+
+  
+}
+
+StatementList statement_():
+{Statement s; StatementList sl;}
+{
+  s = statement() sl = statement_()
+  {sl.addElement(s); return sl;}
+| {	return new StatementList();}    
+}
+
+Statement statement_factor(Identifier id):
+{Exp exp; Exp exp2;}
+{
+ < EQUALS > exp = exp() < SEMI_COLON >
+ {return new Assign(id, exp);}  
+| < LSQUAREBRACKET > exp = exp() < RSQUAREBRACKET > < EQUALS >exp2 = exp() < SEMI_COLON >
+ {return new ArrayAssign(id, exp, exp2);}
+}
+
+Statement statement_two():
+{Statement s; Statement s2; StatementList sl; Exp exp;}
+{
+  < LCURLYBRACE > sl = statement_() < RCURLYBRACE >
+  {return new Block(sl);}
+| < IF > <LBRACE > exp = exp() < RBRACE > s = statement() < ELSE > s2 = statement()
+  {return new If(exp, s, s2);}
+| < WHILE > < LBRACE > exp = exp() < RBRACE > s = statement()
+  {return new While(exp, s);}
+| < PRINT > <LBRACE > exp = exp() < RBRACE > < SEMI_COLON >
+  {return new Print(exp);} 
+}
+
+
+Exp exp():
+{Exp exp; Exp exp2;}
+{
+ exp = final_exp()exp2 = exp_derivation(exp)
+ {return exp2;}
+}
+
+Exp final_exp():
+{Token s; Exp exp;}
+{
+  s = < INTEGER_LITERAL > {return new IntegerLiteral(Integer.parseInt(s.toString())); }
+| s = < BOOLEAN > {if (s.toString().equals("true"))return new True(); return new False();}
+| s = < ID > { return new IdentifierExp(s.toString());}
+| < THIS > { return new This();}
+| <NEW> exp = final_exp_factor(){return exp;}
+| <NEGATION> exp = exp(){return new Not(exp);}
+| <LBRACE> exp = exp() <RBRACE>{return exp;}
+}
+
+Exp final_exp_factor():
+{Exp exp; Token i;}
+{
+	  <INT ><LSQUAREBRACKET> exp = exp() <RSQUAREBRACKET> {return new NewArray(exp);	  }
+| i = <ID>< LBRACE><RBRACE>{return new NewObject(new Identifier(i.toString()));	  }
+}
+
+Exp exp_derivation(Exp exp):
+{Exp exp2;Token op;}
+{
+  < POINT > exp2 = exp_derivation_factor(exp){ return exp2; }
+| op = < OPERATOR > exp2 = exp()
+{
+  if(op.toString().equals("&&"))return new And(exp, exp2);
+  if(op.toString().equals("<"))return new LessThan(exp, exp2);
+  if(op.toString().equals("+")) return new Plus(exp, exp2);
+  if(op.toString().equals("-")) return new Minus(exp, exp2);
+  return new Times(exp, exp2);
+}
+| < LSQUAREBRACKET > exp2 = exp() < RSQUAREBRACKET > {return new ArrayLookup(exp, exp2);}
+| {return exp;}
+}
+
+Exp exp_derivation_factor(Exp exp):
+{ExpList el; Token i;}
+{
+i = < ID > < LBRACE > el = exp_list() < RBRACE >
+	{return new Call(exp,new Identifier(i.toString()),el);}
+| < LENGTH >
+{return new ArrayLength(exp);}
+
+}
+
+
+ExpList exp_list():
+{Exp exp; ExpList expl;}
+{
+ exp = exp()expl = exp_rest_()
+ {expl.addElement(exp);return expl; }
+|{return new ExpList();}
+}
+
+ExpList exp_rest_():
+{Exp exp; ExpList expl;}
+{
+ exp = exp_rest()expl = exp_rest_()
+ {expl.addElement(exp);return expl; }
+|{return new ExpList();}
+}
+
+Exp exp_rest():
+{Exp exp;}
+{
+< COMMA > exp = exp()
+{return exp;}
+}
+

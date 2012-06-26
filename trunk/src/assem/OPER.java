@@ -1,0 +1,1 @@
+package assem;import Temp.Label;import Temp.Temp;import util.List;public class OPER extends Instr {    public OPER(String a, List<Temp> d, List<Temp> s, List<Label> j, Integer c) {	assem = a;	use = s;	def = d;	jumps = j;	cons = c;    }}
