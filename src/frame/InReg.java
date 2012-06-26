@@ -1,0 +1,1 @@
+package frame;import IterationThree.IntermediateCode.tree.exp.Exp;import IterationThree.IntermediateCode.tree.exp.TEMP;import Temp.Temp;public class InReg extends frame.Access {    Temp temp;    public InReg(Temp t) {	temp = t;    }    public Exp exp(Exp fp) {        return new TEMP(temp);    }    public String toString() {        return temp.toString();    }}
